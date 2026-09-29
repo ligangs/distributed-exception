@@ -1,0 +1,70 @@
+# =====================================================================
+# 分布式演示环境中间件编排：Nacos(注册中心) + MySQL(共享存储) + Redis(预留)
+# 启动：docker compose up -d
+# 停止：docker compose down        （保留数据卷）
+# 清库：docker compose down -v     （删除数据卷，MySQL 重建时会重新执行初始化脚本）
+# =====================================================================
+name: distributed-exception
+
+services:
+
+  # ------------------------------------------------------------------
+  # MySQL：库存库 de_stock 与订单库 de_order，首次启动自动执行初始化脚本
+  # ------------------------------------------------------------------
+  de-mysql:
+    image: mysql:8.0
+    container_name: de-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --default-time-zone=+08:00
+    volumes:
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+      - de-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot123456"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # ------------------------------------------------------------------
+  # Nacos 注册中心（单机模式）
+  # 控制台：http://127.0.0.1:8848/nacos   （默认无鉴权）
+  # 9848 为 Nacos 2.x 客户端 gRPC 端口，必须映射
+  # ------------------------------------------------------------------
+  de-nacos:
+    # 注意：使用 2.3.2 而非 2.2.3，2.2.3 镜像内 JDK 在 cgroup v2 内核下读容器指标会抛 NPE 导致启动失败
+    # 2.x 客户端协议兼容，Nacos Client 2.2.0 (SCA 2021.0.6.0) 可正常连接
+    image: nacos/nacos-server:v2.3.2
+    container_name: de-nacos
+    restart: unless-stopped
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+      JVM_XMS: 256m
+      JVM_XMX: 512m
+      JVM_XMN: 128m
+
+  # ------------------------------------------------------------------
+  # Redis：本演示（只复现问题）暂未使用
+  # 预留用于后续引入 Redisson 分布式锁来修复超卖问题
+  # ------------------------------------------------------------------
+  de-redis:
+    image: redis:7.2-alpine
+    container_name: de-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+
+volumes:
+  de-mysql-data:

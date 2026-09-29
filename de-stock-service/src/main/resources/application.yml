@@ -1,0 +1,45 @@
+# =====================================================================
+# de-stock-service 库存服务配置
+#
+# 【多实例启动方式】：
+#   实例 A（默认）: 直接启动，使用下面的 8083 端口
+#   实例 B       : 追加启动参数覆盖端口
+#                  IDEA  -> Program arguments: --server.port=8183
+#                  Java  -> java -jar de-stock-service-1.0.0.jar --server.port=8183
+# =====================================================================
+server:
+  port: 8083
+
+spring:
+  application:
+    name: de-stock-service
+
+  cloud:
+    nacos:
+      discovery:
+        # Nacos 注册中心地址（docker compose 一键启动）
+        server-addr: 127.0.0.1:8848
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/de_stock?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root123456
+    hikari:
+      minimum-idle: 5
+      # 压测时并发较高，连接池稍放大
+      maximum-pool-size: 20
+      connection-timeout: 30000
+
+demo:
+  stock:
+    # 模拟业务处理耗时的【随机上限】(ms)：每次扣减随机休眠 [0, 上限]
+    # 既放大「读-判-改」的竞态窗口，又打破两个实例的节拍同步，使超卖呈"偶发"形态
+    # 想加快演示可调小（如 200），设为 0 则不休眠
+    fake-business-delay-max-ms: 10000
+
+logging:
+  level:
+    com.demo: info
+    # 打开可看到 Feign/Nacos 细节
+    com.alibaba.nacos: warn

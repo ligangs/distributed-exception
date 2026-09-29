@@ -1,0 +1,45 @@
+# =====================================================================
+# de-order-service 订单服务配置
+# =====================================================================
+server:
+  port: 8082
+
+spring:
+  application:
+    name: de-order-service
+
+  cloud:
+    nacos:
+      discovery:
+        # Nacos 注册中心地址（docker compose 一键启动）
+        server-addr: 127.0.0.1:8848
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/de_order?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root123456
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+
+# Feign 配置
+feign:
+  # 压测时会瞬时并发 100+ 请求，启用带连接池的 Apache HttpClient
+  httpclient:
+    enabled: true
+    max-connections: 500
+    max-connections-per-route: 200
+  client:
+    config:
+      default:
+        connectTimeout: 3000
+        # 库存服务引入随机业务耗时（最长 1s/单）后，单侧高并发排队最坏可能达 ~50s，放宽到 120s
+        readTimeout: 120000
+        loggerLevel: basic
+
+logging:
+  level:
+    com.demo: info
+    com.alibaba.nacos: warn
